@@ -17,6 +17,7 @@ ENV/
 
 # Datasets (troppo grandi per git — usare DVC o link esterni)
 data/
+!src/data/
 
 # Checkpoints e pesi dei modelli
 checkpoints/
