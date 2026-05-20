@@ -14,6 +14,7 @@ piq>=0.8.0
 
 # Training utilities
 tqdm>=4.65.0
+torchinfo>=1.8.0
 
 # Logging and visualization
 tensorboard>=2.13.0
