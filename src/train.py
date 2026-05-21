@@ -312,9 +312,9 @@ class Trainer:
                     loss   = self.criterion(output, normal)
 
                 running_loss += loss.item()
-                # piq.psnr/ssim già mediano sul batch; accumulo la media per batch
-                running_psnr += piq.psnr(output, normal, data_range=1.0).item()
-                running_ssim += piq.ssim(output, normal, data_range=1.0).item()
+                # .float(): piq non accetta fp16 (Half) prodotti da autocast AMP
+                running_psnr += piq.psnr(output.float(), normal.float(), data_range=1.0).item()
+                running_ssim += piq.ssim(output.float(), normal.float(), data_range=1.0).item()
 
         n = len(self.val_loader)
         return {
