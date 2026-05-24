@@ -179,3 +179,50 @@ class PairedImageDataset(Dataset):
             f"normal='{self.normal_dir}', "
             f"n={len(self)})"
         )
+
+
+class SingleImageDataset(Dataset):
+    """Dataset per immagini senza ground truth (valutazione no-reference).
+
+    Usato per ExDark e qualsiasi cartella di immagini non paired.
+    Percorre la directory in modo ricorsivo tramite il pattern ``glob``.
+
+    Returns
+    -------
+    dict con chiavi:
+        ``"image"`` : tensore (C, H, W) dopo ``transform``
+        ``"stem"``  : stem del file (relativo alla root per evitare collisioni)
+    """
+
+    def __init__(
+        self,
+        image_dir: str | Path,
+        glob: str = "**/*",
+        transform: Optional[Callable] = None,
+    ) -> None:
+        self.image_dir = Path(image_dir)
+        self.transform = transform
+
+        self.paths: list[Path] = sorted(
+            p for p in self.image_dir.glob(glob)
+            if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+        )
+        if not self.paths:
+            raise FileNotFoundError(
+                f"Nessuna immagine trovata in '{self.image_dir}' con pattern '{glob}'."
+            )
+
+    def __len__(self) -> int:
+        return len(self.paths)
+
+    def __getitem__(self, idx: int) -> dict:
+        path = self.paths[idx]
+        img  = Image.open(path).convert("RGB")
+        # Stem relativo alla root (es. "Bicycle/img001") per evitare collisioni
+        stem = str(path.relative_to(self.image_dir).with_suffix(""))
+        if self.transform is not None:
+            img = self.transform(img)
+        return {"image": img, "stem": stem}
+
+    def __repr__(self) -> str:
+        return f"SingleImageDataset(dir='{self.image_dir}', n={len(self)})"

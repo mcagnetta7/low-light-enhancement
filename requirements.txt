@@ -11,6 +11,7 @@ Pillow>=9.5.0
 # Image quality metrics (PSNR, SSIM, NIQE, BRISQUE)
 scikit-image>=0.21.0
 piq>=0.8.0
+pyiqa>=0.1.0
 
 # Training utilities
 tqdm>=4.65.0
