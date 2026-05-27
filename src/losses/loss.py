@@ -27,6 +27,8 @@ import torch
 import torch.nn as nn
 import piq
 
+from src.losses.perceptual import VGGPerceptualLoss
+
 
 class CombinedLoss(nn.Module):
     """
@@ -118,4 +120,124 @@ class CombinedLoss(nn.Module):
             f"CombinedLoss(alpha={self.alpha}, "
             f"data_range={self.data_range}, "
             f"ssim_kernel_size={self.ssim_loss.kernel_size})"
+        )
+
+
+class CombinedPerceptualLoss(nn.Module):
+    """
+    Loss L1 + (1 − SSIM) + λ_perc · VGGPerceptualLoss.
+
+    Estende CombinedLoss aggiungendo la supervisione percettiva VGG16.
+    Usare questa loss in sostituzione a CombinedLoss per l'esperimento
+    di mitigazione (A04).
+
+    Formula::
+
+        loss = alpha · L1(pred, gt)
+             + (1 − alpha) · (1 − SSIM(pred, gt))
+             + lambda_perc · VGGPerceptual(pred, gt)
+
+    La componente percettiva opera su feature relu2_2 e relu3_3 di VGG16
+    (vedere ``VGGPerceptualLoss``).
+
+    Args:
+        alpha:            peso L1 ∈ [0,1]. Default 0.8.
+        lambda_perc:      peso della componente percettiva. Default 0.05.
+                          Tenere basso: VGGPerceptual ha scala diversa da L1.
+        data_range:       range pixel. Default 1.0.
+        ssim_kernel_size: kernel gaussiano SSIM. Default 11.
+        vgg_layer_weights: pesi per i due layer VGG [relu2_2, relu3_3].
+                           Default [0.5, 0.5].
+
+    Esempio::
+
+        criterion = CombinedPerceptualLoss(alpha=0.8, lambda_perc=0.05)
+        loss = criterion(pred, target)
+        components = criterion.components(pred, target)
+        # {'l1': ..., 'ssim_loss': ..., 'perceptual': ..., 'combined': ...}
+    """
+
+    def __init__(
+        self,
+        alpha: float = 0.8,
+        lambda_perc: float = 0.05,
+        data_range: float = 1.0,
+        ssim_kernel_size: int = 11,
+        vgg_layer_weights: list[float] | None = None,
+    ) -> None:
+        super().__init__()
+
+        if not 0.0 <= alpha <= 1.0:
+            raise ValueError(f"alpha deve essere in [0, 1], ricevuto: {alpha}")
+        if lambda_perc < 0:
+            raise ValueError(f"lambda_perc deve essere >= 0, ricevuto: {lambda_perc}")
+
+        self.alpha       = alpha
+        self.lambda_perc = lambda_perc
+        self.data_range  = data_range
+
+        self.l1         = nn.L1Loss()
+        self.ssim_loss  = piq.SSIMLoss(
+            kernel_size=ssim_kernel_size,
+            data_range=data_range,
+            reduction="mean",
+        )
+        self.perceptual = VGGPerceptualLoss(layer_weights=vgg_layer_weights)
+
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Args:
+            pred:   output del modello (B, C, H, W) in [0, 1].
+            target: ground truth       (B, C, H, W) in [0, 1].
+
+        Returns:
+            Scalare: alpha·L1 + (1−alpha)·(1−SSIM) + lambda_perc·VGG.
+        """
+        loss_l1   = self.l1(pred, target)
+        loss_ssim = self.ssim_loss(pred, target)
+        loss_perc = self.perceptual(pred, target)
+        return (
+            self.alpha * loss_l1
+            + (1.0 - self.alpha) * loss_ssim
+            + self.lambda_perc * loss_perc
+        )
+
+    def components(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        """
+        Restituisce le singole componenti per il logging.
+
+        Returns:
+            Dict con chiavi ``"l1"``, ``"ssim_loss"``,
+            ``"perceptual"``, ``"combined"``.
+        """
+        with torch.no_grad():
+            loss_l1   = self.l1(pred, target)
+            loss_ssim = self.ssim_loss(pred, target)
+            loss_perc = self.perceptual(pred, target)
+            combined  = (
+                self.alpha * loss_l1
+                + (1.0 - self.alpha) * loss_ssim
+                + self.lambda_perc * loss_perc
+            )
+        return {
+            "l1"         : loss_l1.detach(),
+            "ssim_loss"  : loss_ssim.detach(),
+            "perceptual" : loss_perc.detach(),
+            "combined"   : combined.detach(),
+        }
+
+    def __repr__(self) -> str:
+        return (
+            f"CombinedPerceptualLoss("
+            f"alpha={self.alpha}, "
+            f"lambda_perc={self.lambda_perc}, "
+            f"data_range={self.data_range})"
         )

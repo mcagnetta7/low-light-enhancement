@@ -1,3 +1,4 @@
-from .loss import CombinedLoss
+from .loss       import CombinedLoss, CombinedPerceptualLoss
+from .perceptual import VGGPerceptualLoss
 
-__all__ = ["CombinedLoss"]
+__all__ = ["CombinedLoss", "CombinedPerceptualLoss", "VGGPerceptualLoss"]

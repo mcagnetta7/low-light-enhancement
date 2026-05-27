@@ -1,0 +1,28 @@
+{
+  "experiment": "baseline",
+  "model": "UNetBaseline(base_channels=32, bilinear=False, params=7,763,107)",
+  "epochs_done": 27,
+  "best_val_loss": 0.21120199064413706,
+  "val_psnr_db": 14.802137480841743,
+  "val_ssim": 0.6351719631089104,
+  "hardware": "Tesla T4",
+  "config": {
+    "lr": 0.0001,
+    "weight_decay": 0.0001,
+    "optimizer_name": "adamw",
+    "epochs": 100,
+    "grad_clip_norm": 1.0,
+    "checkpoint_dir": "/kaggle/working/checkpoints",
+    "experiment_name": "baseline",
+    "log_dir": "/kaggle/working/runs",
+    "log_every_n_epochs": 1,
+    "seed": 42,
+    "device": "auto",
+    "scheduler_name": "cosine",
+    "scheduler_patience": 5,
+    "early_stopping_patience": 15,
+    "amp": true,
+    "val_every_n_epochs": 1,
+    "n_visual_samples": 4
+  }
+}
